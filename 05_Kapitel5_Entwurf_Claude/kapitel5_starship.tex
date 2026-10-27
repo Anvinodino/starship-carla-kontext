@@ -1,0 +1,504 @@
+% ---------------------------------------------------------------------------
+% Kapitel 5: Implementierung des Starship-Gehwegroboters
+% Ersetzt den Platzhaltertext von Kapitel 5. Aufbau wie Kapitel 6 (Clevon).
+% Abbildungen: figures/starship/*  |  Literatur: starship_quellen.bib
+% Stand: 22.10.2026, Repository-Branch merge/clevon-starship-ein-repo
+% ---------------------------------------------------------------------------
+\chapter{Implementierung des Starship-Gehwegroboters}
+\label{chap:starship}
+
+Dieses Kapitel beschreibt die Modellierung und Integration des Starship-Gehwegroboters
+in CARLA. Im Mittelpunkt stehen die Fahrzeuggeometrie, die Umsetzung der Fahrphysik mit
+sechs simulierten Rädern unter Chaos Vehicles, die Sensorik sowie ein Bordstein-Assistent,
+der das Überfahren von Bordsteinen ermöglicht. Beschrieben wird der abschließende
+Implementierungsstand unter CARLA 0.10.0 und Unreal Engine 5.5.4; die ROS-2-Anbindung
+folgt in Kapitel~7.
+
+\section{Referenzfahrzeug und Modellumfang}
+\label{sec:starship_referenz}
+
+Der Starship-Roboter der Starship Technologies OÜ bildet den gehwegbasierten
+Lieferroboter des Projekts ab. Er fährt mit höchstens 6\,km/h, wiegt leer etwa 25\,kg
+und nimmt bis zu 9,1\,kg Zuladung auf \parencite{wikipedia_starship}. Das Fahrwerk besteht
+aus sechs Rädern. Das Fahrwerkspatent des Herstellers nennt mindestens vier Elektromotoren,
+etwa je einen für jedes Vorderrad und je einen für Mittel- und Hinterrad einer Seite; die
+Motoren können auch in den Rädern sitzen \parencite{starship_patent_fahrwerk}. Ein weiteres Patent beschreibt Räder mit etwa
+20\,cm Durchmesser, die an Kipphebeln sitzen und Hindernisse von 15 bis 20\,cm Höhe
+überwinden \parencite{starship_patent_bogie}. Ein Herstellerdatenblatt mit Abmessungen,
+Motorleistung oder Sensortypen ist nicht veröffentlicht. Die Modellierung stützt sich
+deshalb auf diese Angaben, auf Patente des Herstellers und auf Presseberichte.
+
+Das Simulationsmodell umfasst die Fahrzeuggeometrie mit Deckel und Antenne,
+Fahr- und Lenkfunktionen mit sechs angetriebenen Rädern, einen Bordstein-Assistenten
+sowie 26 virtuelle Sensoren. Lichtfunktionen und ein öffnender Deckel sind nicht
+Bestandteil der Umsetzung.
+
+\subsection{Eigene Modellierung und HKA-Design}
+\label{sec:starship_design}
+
+Der Roboter wurde in Blender eigenständig nachmodelliert. Grundform und Proportionen,
+also kastenförmiger Rumpf mit abgerundeten Kanten, Deckel, sechs Räder in drei Achsen
+und eine Signalantenne, folgen dem Original. Um keine geschützte Gestaltung zu
+übernehmen, wurde das Erscheinungsbild bewusst verändert: Der Rumpf ist anthrazit, auf
+beiden Seiten steht der Schriftzug „HKA“ in Rot, die Front trägt ein rotes Lichtband und
+die Antenne endet in einem roten Signallicht statt einer Fahne
+(Abbildung~\ref{fig:starship_hka}). Ein Hersteller-CAD-Modell wurde nicht verwendet; alle
+Bauteile sind eigene Modellierung.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.62\textwidth]{figures/starship/hka_left.png}
+  \caption{Eigenes Starship-Modell im HKA-Design. Eigene Darstellung aus Blender.}
+  \label{fig:starship_hka}
+\end{figure}
+
+Sichtbare Sensorgehäuse sind im Modell nicht ausgearbeitet. Die Messfunktion entsteht
+ausschließlich durch die zur Laufzeit angebrachten virtuellen Sensoren in CARLA
+(Abschnitt~\ref{sec:starship_sensorik}).
+
+\section{Geometrie, Rig und CARLA-Integration}
+\label{sec:starship_geometrie}
+
+Das Fahrzeugskelett besteht aus dem Basisknochen \texttt{VehicleBase} und sechs
+Radknochen \texttt{Wheel\_\{Front,Middle,Rear\}\_\{Left,Right\}}, die jeweils im
+Radmittelpunkt liegen (Abbildung~\ref{fig:starship_rig}). Rumpf und Räder sind starr an
+ihre Knochen gebunden. Alle Knochen zeigen in Blender in $+y$-Richtung und haben keinen
+Rollwinkel. Damit stimmen ihre lokalen Achsen in Unreal Engine mit den Fahrzeugachsen
+überein. Ein um 90° gekippter Basisknochen hatte im ersten Stand dazu geführt, dass die
+Fahrwerksberechnung die Räder seitlich abtastete und kein Rad Bodenkontakt meldete.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.55\textwidth]{figures/starship/blender_bones.png}
+  \caption{Basisknochen \texttt{VehicleBase} und sechs Radknochen im Starship-Modell
+  (Vorstufe mit gleichem Skelett, noch mit Fahne). Eigene Darstellung aus Blender.}
+  \label{fig:starship_rig}
+\end{figure}
+
+Die Modellquellen liegen im Repository unter \texttt{02\_starship\_emodell/models}. Die
+Datei \texttt{starship\_hka\_v5.blend} enthält den aktuellen Stand, der Export
+\texttt{starship\_hka\_v5.fbx} ist die Grundlage für den Import. Der FBX-Export verwendet
+Zentimeter; Mesh- und Knochenskalierung betragen jeweils 1/1/1, der Importfaktor ist 1.
+Ein früherer Export mit Knotenskalierung 100 ließ den Roboter in CARLA durch die Fahrbahn
+fallen, ein Export in Metern kam hundertfach verkleinert an.
+
+Die Unreal-Engine-4-Assets des Ausgangsstands ließen sich in Unreal Engine 5 nicht
+öffnen. Das Fahrzeug wurde deshalb aus der FBX-Datei und den ausgelesenen Fahrzeugwerten
+des Ausgangsstands neu aufgebaut. Alle Schritte laufen als Python-Skripte im geöffneten
+Editor (Remote Execution) und prüfen ihr Ergebnis selbst: Mesh-Import, Physics Asset,
+Animations-Blueprint, sechs Rad-Blueprints, Fahrzeug-Blueprint und Registrierung
+\parencite{rauch_lee_repo}. Der Aufbau ist damit vollständig reproduzierbar; fertige
+Unreal-Engine-5-Assets liegen nicht im Repository.
+
+Der Fahrzeug-Blueprint \texttt{BP\_Starship} basiert auf \texttt{BaseVehiclePawnNW},
+der CARLA-Basisklasse für Fahrzeuge mit mehr als vier Rädern, die auch der
+sechsrädrige Lkw \texttt{EuropeanHGV} verwendet. Seine Registrierung erfolgt über die
+\texttt{VehicleParameters.json} unter der Kennung \texttt{vehicle.starship.bot} mit sechs
+Rädern. Die Kennung ist dieselbe wie im Ausgangsstand, sodass bestehende Clients
+unverändert weiterlaufen.
+
+\subsection{Abmessungen}
+\label{sec:starship_masse}
+
+Tabelle~\ref{tab:starship_masse} vergleicht die verfügbaren Referenzangaben mit dem
+Modell. Die Modellmaße stammen aus der von CARLA gemeldeten Actor-Bounding-Box und den
+Radknochen. Da der Hersteller keine Außenmaße veröffentlicht, ist nur ein grober
+Vergleich mit der im Kamerapatent genannten Robotergröße möglich.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Referenzangaben und Modellwerte des Starship. Referenz: \textcite{wikipedia_starship},
+  \textcite{starship_patent_kamera}, \textcite{starship_patent_bogie}; Modell: eigene Messung.}
+  \label{tab:starship_masse}
+  \begin{tabular}{llll}
+    \hline
+    Größe & Referenz & Modell & Bemerkung \\
+    \hline
+    Länge $\times$ Breite & etwa 60\,cm Robotergröße & 0,564 $\times$ 0,554\,m & Bounding-Box \\
+    Höhe mit Antenne & -- & 0,658\,m & Bounding-Box \\
+    Rumpf (Kollisionsbox) & -- & 0,55 $\times$ 0,45 $\times$ 0,30\,m & 19 bis 49\,cm über Boden \\
+    Raddurchmesser & etwa 20\,cm & 18\,cm & Radius 9\,cm \\
+    Radstand / Spurweite & -- & 0,382 / 0,512\,m & aus Radknochen \\
+    Anzahl Räder & 6 & 6 & alle simuliert \\
+    Masse & 25\,kg leer, bis 9,1\,kg Zuladung & 35\,kg & beladen \\
+    Höchstgeschwindigkeit & 6\,km/h & 6,3\,km/h & gemessen \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsection{Aufgaben der Blueprint-Bausteine}
+\label{sec:starship_bausteine}
+
+Das Fahrzeug entsteht wie der Clevon aus mehreren Assets. Das Skeletal Mesh
+\texttt{SK\_Starship} enthält Geometrie und Skelett, das Physics Asset den
+Kollisionskörper. Sechs Chaos-Wheel-Blueprints \texttt{BP\_Starship\_\{FLW, FRW, MLW,
+MRW, RLW, RRW\}} legen die radbezogenen Parameter fest. Die Chaos-Fahrzeugbewegungs\-komponente
+berechnet die Fahrzeugbewegung, der Animations-Blueprint \texttt{AnimBP\_Starship}
+überträgt die Radbewegungen auf das Skelett. \texttt{BP\_Starship} verbindet diese
+Bausteine und enthält zusätzlich die Komponente \texttt{CurbAssist}
+(Abschnitt~\ref{sec:starship_bordstein}). Eine eigene Blueprint-Logik im Event Graph ist
+nicht erforderlich, da weder Lichter noch bewegliche Zusatzteile angesteuert werden.
+
+Zwei Einstellungen weichen von der Basisklasse ab und sind für die Funktion notwendig.
+\texttt{BaseVehiclePawnNW} liefert den Fahrzeugkörper ohne Physiksimulation aus;
+ohne Aktivierung von \emph{Simulate Physics} bleibt der Roboter an der Spawnposition
+eingefroren. Außerdem muss das erste Wheel Setup ein lenkendes Rad sein, da CARLA den
+maximalen Lenkwinkel aus Rad~0 liest. Die von CARLA genutzte Box
+\texttt{VehicleBounds} passt CARLA beim Spawnen selbst an das Mesh an.
+
+% TODO: Screenshot der Komponentenstruktur von BP_Starship in Unreal Engine 5.5.4
+% (analog Abbildung 6.4) am Linux-Rechner aufnehmen und hier einfügen.
+
+\subsection{Skelettanimation und Kollisionskörper}
+\label{sec:starship_animation}
+
+Der Animations-Blueprint ist eine Kopie des Blueprints \texttt{AnimBP\_EuropeanHGV}, auf
+das Starship-Skelett umgestellt. Der Animationsgraph verbindet Mesh Space Ref Pose,
+Wheel Controller, Component To Local und Output Pose. Der Wheel Controller erhält
+Radknochen, Raddrehung, Lenkwinkel und Federweg zur Laufzeit aus den Wheel Setups der
+Bewegungskomponente und ist daher nicht an die Knochennamen des Lkw gebunden. Im
+Ausgangsstand unter PhysX waren nur vier Räder simuliert; die Mittelräder drehten über
+zwei Copy-Bone-Knoten lediglich optisch mit. Unter Chaos werden alle sechs Räder
+simuliert, die Copy-Bone-Knoten entfallen.
+
+Das Physics Asset enthält genau einen Körper: eine Box auf \texttt{VehicleBase} mit
+55\,$\times$\,45\,$\times$\,30\,cm, deren Unterkante 19\,cm und Oberkante 49\,cm über dem
+Boden liegen. Radkörper gibt es nicht. Die Rad-Boden-Kontakte ermittelt die
+Chaos-Fahrzeugbewegungskomponente wie beim Clevon mit einer Spherecast-Abfrage je Rad, die
+den Radradius berücksichtigt. Zunächst war ein senkrechter Strahl (Raycast) eingestellt,
+weil eine Kugelabfrage die Bordsteinkante seitlich trifft und die Federkraft dann entlang
+der nahezu waagerechten Flächennormale nach hinten wirkt. Im Fahrbetrieb mit
+Bordstein-Assistent zeigte sich jedoch, dass das Rad mit Raycast in die Bordsteinfront
+eintaucht und dort einhakt, da der Strahl nur einen Punkt unter der Radmitte prüft. Mit
+Spherecast erfasst die Abfrage die Kante bereits mit der Radkontur, und das Rad steigt
+auf. Die Radabfrage ist deshalb auf Spherecast umgestellt.
+Die Unterkante der Box wurde von ursprünglich 16 auf 19\,cm angehoben,
+damit der Rumpf 15\,cm hohe Bordsteine auch dann nicht berührt, wenn die Vorderräder
+bereits oben sind.
+
+\subsection{Lenkung}
+\label{sec:starship_lenkung}
+
+Der reale Starship lenkt nach seinem Fahrwerkspatent wie ein Kettenfahrzeug: Die
+Drehachsen der Räder bleiben auch bei Kurvenfahrt fest zum Roboter, die Seiten werden
+unterschiedlich schnell angetrieben \parencite{starship_patent_fahrwerk}. Das Modell
+verwendet stattdessen eine Achsschenkellenkung mit Ackermann-Geometrie: Die Vorderräder
+schlagen bis 30° ein, Mittel- und Hinterräder sind nicht lenkbar. Gründe sind die
+Fahrzeugschnittstelle von CARLA, deren Steuerbefehl einen Lenkwert statt zweier
+Seitengeschwindigkeiten vorsieht, sowie die Fahrwerksmodelle von PhysX und Chaos, die
+gelenkte Räder voraussetzen. Fahrclient, Autopilot und ROS-2-Steuerbefehl
+(Kapitel~7) bleiben dadurch ohne Anpassung nutzbar. Ein Wenden auf der Stelle ist
+damit nicht möglich; der gemessene Wenderadius beträgt 2,2 bis 2,4\,m.
+
+\section{Fahrphysik und Antrieb}
+\label{sec:starship_fahrphysik}
+
+Die Fahrphysik wird durch Chaos Vehicles berechnet. Die Parametrierung umfasst Masse und
+Schwerpunkt, Rad- und Federungseigenschaften sowie das Antriebsmodell. Die gewählten
+Werte beschreiben einen Simulationsbetriebsfall und keine Herstellerkalibrierung.
+
+\subsection{Masse, Schwerpunkt und Fahrwerk}
+\label{sec:starship_masse_fahrwerk}
+
+Die Simulation verwendet eine Fahrzeugmasse von 35\,kg. Sie entspricht der
+Leermasse von etwa 25\,kg zuzüglich der maximalen Zuladung von 9,1\,kg
+\parencite{wikipedia_starship} und beschreibt damit den beladenen Fahrzeugzustand.
+Am Fahrzeug-Mesh ist ein Schwerpunktversatz von $(0, 0, -15)$\,cm eingestellt. Ein aus
+einem Pkw-Blueprint übernommener Versatz von $(25, 0, -30)$\,cm hatte den Schwerpunkt vor
+die Vorderachse gelegt, die nur 19\,cm vor der Fahrzeugmitte liegt.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Wesentliche Geometrie- und Fahrwerksparameter des Starship-Modells unter
+  Chaos Vehicles. Die Einstellungen stellen keine Herstellerkalibrierung dar.}
+  \label{tab:starship_fahrwerk}
+  \begin{tabular}{ll}
+    \hline
+    Parameter & Wert \\
+    \hline
+    Fahrzeugmasse & 35\,kg \\
+    Schwerpunktversatz & $(0, 0, -15)$\,cm \\
+    Radstand / Spurweite & 0,382 / 0,512\,m \\
+    Radradius / Radbreite / Radmasse & 0,09\,m / 0,04\,m / 1\,kg \\
+    Maximaler Lenkwinkel vorne / Mitte / hinten & 30° / 0° / 0° \\
+    Lenkgeometrie & Ackermann \\
+    Angetriebene Räder & alle sechs \\
+    Maximales Bremsmoment je Rad & 20\,Nm \\
+    Feststellbremsmoment Mittel- und Hinterräder & 40\,Nm \\
+    Maximaler Einfederweg / Ausfederweg & 18 / 4\,cm \\
+    Federrate & 14,3\,N/cm \\
+    Suspension Damping Ratio & 0,7 \\
+    Friction Force Multiplier & 2,0 \\
+    Rad-Boden-Abfrage & Spherecast \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Die Vorderachse übernimmt die Lenkung. Die Betriebsbremse wirkt auf alle sechs Räder, die
+Feststellbremse auf Mittel- und Hinterräder. Der Radradius von 9\,cm wurde am Modell
+gemessen; Radmasse, Bremsmomente und Federwege sind Annahmen für einen kleinen Roboter.
+
+Die Federung ist auf Bordsteine ausgelegt. Der große Einfederweg von 18\,cm erlaubt
+einem Rad, auf eine 15\,cm hohe Kante zu steigen, ohne auf den harten Anschlag zu treffen.
+Die Federrate ergibt sich aus der Radlast und dem Ausfederweg. Bei 35\,kg auf sechs
+Rädern beträgt die Radlast $F_\mathrm{R} = 35\,\mathrm{kg} \cdot 9{,}81\,\mathrm{m/s^2} / 6
+\approx 57\,\mathrm{N}$, die Federrate
+\begin{equation}
+  k = \frac{F_\mathrm{R}}{s_\mathrm{aus}} = \frac{57\,\mathrm{N}}{4\,\mathrm{cm}}
+  \approx 14{,}3\,\mathrm{N/cm}.
+  \label{eq:starship_feder}
+\end{equation}
+Damit federt jedes Rad in Ruhe genau um den Ausfederweg ein, und die Radknochen stehen
+auf der modellierten Höhe. Die Vorspannung wird dafür nicht benötigt, da Chaos sie in der
+verwendeten Version nicht auswertet. Die Eigenfrequenz liegt bei etwa 2,5\,Hz; das macht
+das Fahrwerk auf Fahrbahnmarkierungen und kleinen Unebenheiten weich. Chaos rechnet die
+eingegebene Federrate intern mit dem Faktor 100 um, der Eingabewert entspricht deshalb
+der Federsteifigkeit in N/cm. Federrate, Dämpfung und Reifenkräfte sind nicht anhand
+von Messungen am realen Fahrzeug kalibriert.
+
+\subsection{Antriebsmodell mit sechs angetriebenen Rädern}
+\label{sec:starship_antrieb}
+
+Beim realen Starship treiben mehrere Elektromotoren alle sechs Räder an, die Motoren
+können in den Rädern sitzen \parencite{starship_patent_fahrwerk}. Chaos bildet dagegen
+einen zentralen Motor mit Getriebe und Differenzial ab. Das Modell
+verwendet deshalb einen Ersatzmotor mit flacher Drehmomentkennlinie, dessen Moment über
+ein Allraddifferenzial auf alle sechs Räder verteilt wird. Die Verteilung erfolgt nach
+Achstyp: Die beiden Vorderräder erhalten je 25\,\%, die vier Mittel- und Hinterräder je
+12,5\,\%. Leistung und Drehmoment des realen Antriebs sind nicht veröffentlicht.
+
+Die Höchstgeschwindigkeit wird über die maximale Motordrehzahl begrenzt, nicht über das
+Drehmoment. Mit $n_\mathrm{max} = 720\,\mathrm{min^{-1}}$, der Gangübersetzung
+$i_\mathrm{G} = 1$, der Achsübersetzung $i_\mathrm{A} = 4$ und dem Radradius
+$r = 0{,}09\,\mathrm{m}$ ergibt sich
+\begin{equation}
+  v_\mathrm{max} = \frac{n_\mathrm{max}}{i_\mathrm{G}\, i_\mathrm{A}} \cdot \frac{2\pi r}{60}
+  = \frac{720}{4} \cdot \frac{2\pi \cdot 0{,}09\,\mathrm{m}}{60\,\mathrm{s}}
+  \approx 1{,}70\,\mathrm{m/s} \approx 6{,}1\,\mathrm{km/h}.
+  \label{eq:starship_vmax}
+\end{equation}
+Dabei ist $n_\mathrm{max}$ in $\mathrm{min^{-1}}$ einzusetzen. Gemessen wurden 6,3\,km/h.
+Das maximale Motormoment beträgt 3\,Nm. Mit einem angenommenen Wirkungsgrad von 0,9
+ergibt sich eine Zugkraft von
+\begin{equation}
+  F_\mathrm{Z} = \frac{M_\mathrm{max}\, i_\mathrm{G}\, i_\mathrm{A}\, \eta}{r}
+  = \frac{3\,\mathrm{Nm} \cdot 4 \cdot 0{,}9}{0{,}09\,\mathrm{m}} = 120\,\mathrm{N},
+  \label{eq:starship_zugkraft}
+\end{equation}
+rechnerisch also bis zu 3,4\,m/s² Beschleunigung bei 35\,kg. In Chaos wird die
+Kennlinie durch das Kurven-Asset \texttt{Curve\_Starship\_Torque} mit dem Wert 1,0 über
+den gesamten Drehzahlbereich und den Parameter Max Torque abgebildet. Ohne
+Drehmomentkurve schaltet Chaos die Antriebssimulation ab.
+
+Im Ausgangsstand unter PhysX trieb ein Vorderradantrieb mit 10 bis 15\,Nm und einer
+Achsübersetzung von 3,4 nur zwei Räder an. Der Antrieb aller sechs Räder entspricht dem
+Original und verbessert die Traktion an Kanten; Motormoment und Übersetzung wurden so
+angepasst, dass die Höchstgeschwindigkeit weiterhin bei rund 6\,km/h liegt.
+
+\section{Sensorik und Parametrierung}
+\label{sec:starship_sensorik}
+
+Das Sensorkonzept umfasst 26 Sensoren: neun RGB-Kameras, drei ToF-Tiefenkameras, vier
+Radare, acht Ultraschallsensoren, GNSS und IMU. Anzahl von Kameras, Radaren und
+Ultraschallsensoren entspricht den Angaben zum Starship in
+\textcite{mit_technology_review_2018}. Die Anordnung der Kameras folgt dem Kamerapatent
+des Herstellers \parencite{starship_patent_kamera}. Für ToF, Radar, Ultraschall, GNSS und
+IMU sind keine Einbaupositionen veröffentlicht; ihre Lage ist aus der Aufgabe des
+jeweiligen Sensors abgeleitet. Neuere Angaben des Herstellers nennen zwölf Kameras
+einschließlich der ToF-Kameras \parencite{starship_robots}, was mit neun RGB- und drei
+ToF-Kameras übereinstimmt.
+
+Die virtuellen Sensoren werden als CARLA-Actors an das Fahrzeug gebunden. Positionen,
+Orientierungen und Attribute sind je Sensortyp in JSON-Profilen hinterlegt, die sowohl
+die Anzeigeprogramme als auch die ROS-Sensorskripte verwenden \parencite{rauch_lee_repo}.
+Abbildung~\ref{fig:starship_sensoren} zeigt die Anordnung, Tabelle~\ref{tab:starship_sensoren}
+fasst die Profile zusammen. Die Messraten sind Sollwerte in Simulationszeit; die
+Referenzprodukte dienen der Parametrierung und belegen nicht die Identität der im realen
+Starship verbauten Sensoren.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{figures/starship/starship_sensoranordnung.png}
+  \caption{Anordnung der 26 Sensoren aus den gespeicherten CARLA-Montagewerten.
+  K: Kamera, T: ToF, R: Radar, U: Ultraschall, G: GNSS, I: IMU. GNSS und IMU liegen bei
+  $x = y = 0$ und sind in der Draufsicht nur zur Lesbarkeit versetzt. Pfeillängen
+  schematisch. Eigene Darstellung.}
+  \label{fig:starship_sensoren}
+\end{figure}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Sensorprofile des Starship-Modells. Messraten sind Sollwerte in Simulationszeit.}
+  \label{tab:starship_sensoren}
+  \begin{tabular}{p{0.2\textwidth}p{0.42\textwidth}p{0.3\textwidth}}
+    \hline
+    Sensor & Wesentliche Parameter & Referenz \\
+    \hline
+    RGB, 9 Stück & 640 $\times$ 480 Pixel (seitlich hochkant 480 $\times$ 640); 80° bzw. 60° horizontal; 4\,Hz
+      & Kamerapatent Starship \\
+    ToF, 3 Stück & Tiefenkamera 320 $\times$ 240 Pixel; 90°; 5\,m; 10\,Hz & ESPROS epc660 \\
+    Radar, 4 Stück & 20\,m; 60° $\times$ 20°; 1500 Strahlen/s; 20\,Hz & TI IWR6843AOP \\
+    Ultraschall, 8 Stück & Hinderniserkennung 3\,m; Radius 0,15\,m; 20\,Hz & MaxBotix MB1242 \\
+    GNSS & 5\,Hz; Streuung $\sigma \approx 2$\,m horizontal, 1\,m Höhe & Empfänger ohne RTK (Annahme) \\
+    IMU & 100\,Hz; $\sigma$ 0,02\,m/s² bzw. 0,002\,rad/s & MEMS-IMU (Annahme) \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Zur Verringerung der Renderlast erzeugen Kamera- und ToF-Anzeige jeweils nur die Sensoren
+des ausgewählten Reiters; alle Positionen bleiben im Profil hinterlegt. Mit allen neun
+Kameras und drei ToF-Kameras gleichzeitig stürzte der Editor bei 16\,GB Grafikspeicher
+ab. Die Anzeigeprogramme für Kameras, ToF, Radar und Ultraschall sowie die GNSS- und
+IMU-Erweiterung des Fahrclients wurden unter CARLA 0.10.0 funktional erprobt.
+
+\subsection{Kameras und Blickrichtungen}
+\label{sec:starship_kameras}
+
+Das Kamerapatent beschreibt eine Einzelkamera vorne mit waagerechter Sicht sowie
+Stereopaare vorne, links, rechts und hinten \parencite{starship_patent_kamera}. Die
+Einzelkamera sitzt vorne mittig auf 42\,cm Höhe. Das vordere Paar liegt darunter auf
+40\,cm, hat eine Stereobasis von 8\,cm und ist um 30° nach unten geneigt; das Patent nennt
+5 bis 10\,cm Basis und 20 bis 40° Neigung, damit Bordstein und Boden direkt vor dem
+Roboter erfasst werden. Die seitlichen Paare haben eine Basis von 18\,cm (Patent: 15 bis
+20\,cm), das hintere Paar 8\,cm. Seitliche und hintere Kameras sind um 10° nach unten
+geneigt. Die Kamerahöhe ist im Patent nicht angegeben und wurde knapp unter die
+Deckelkante gelegt, wo die Sicht am weitesten reicht und die Räder sie nicht verdecken.
+
+Das Patent nennt ein Sichtfeld von etwa 60° $\times$ 80°, hochkant eingebaute
+Seitenkameras und eine Bildrate von etwa vier Bildern pro Sekunde. Das Modell übernimmt
+dies mit 80° horizontal für Front- und Heckkameras, 60° horizontal für die hochkant
+eingebauten Seitenkameras (480 $\times$ 640 Pixel) und einem Messintervall von 0,25\,s.
+Die Auflösung ist im Patent nicht angegeben und als Annahme auf 640 $\times$ 480 Pixel
+gesetzt. Linsenverzeichnung wird nicht nachgebildet.
+
+\subsection{ToF-Tiefenkameras}
+\label{sec:starship_tof}
+
+Starship verwendet ToF-Bildsensoren des Typs ESPROS epc660 \parencite{robot_report_espros}.
+Dieser Chip hat 320 $\times$ 240 Bildpunkte \parencite{espros_epc660}. Das Modell bildet
+die ToF-Sensoren nach Abschnitt~3.2 durch CARLA-Tiefenkameras mit dieser Auflösung, 90°
+Sichtfeld und einer auf 5\,m begrenzten Messdistanz nach. Drei Sensoren sitzen vorne und
+an beiden Seiten auf 30\,cm Höhe und sind um 15° nach unten geneigt. Der Mittelstrahl
+trifft den Boden damit etwa 1,1\,m vor dem Sensor; erfasst werden Bordsteine, Stufen und
+Löcher im Nahbereich. Nach hinten decken Stereokameras, Radar und Ultraschall ab.
+Rauschen und Mehrwegeffekte bildet die Tiefenkamera nicht ab.
+
+\subsection{Radar und Ultraschall}
+\label{sec:starship_radar_us}
+
+Je ein Radar zeigt nach vorne, hinten, links und rechts und sitzt auf 35\,cm Höhe. Radar
+erkennt bewegte Objekte wie Radfahrer und Fahrzeuge auch bei Dunkelheit und Regen.
+Reichweite und Frequenzbereich orientieren sich an einem 60-GHz-Kurzstreckenradar für
+Roboter, dem TI IWR6843AOP \parencite{ti_iwr6843aop}. Dessen Sichtfeld von 120° wurde
+bewusst auf 60° $\times$ 20° verengt, damit CARLAs Radar weniger Bodenechos liefert und
+die Messpunkte nicht verdünnt. An den Ecken bleiben dadurch Lücken, die die schrägen
+Ultraschallsensoren abdecken.
+
+Die acht Ultraschallsensoren bilden einen Ring auf 22\,cm Höhe: drei vorne, drei hinten,
+je einer seitlich, wie bei Einparksensoren von Pkw. Die niedrige Lage erfasst auch
+niedrige Hindernisse wie Poller oder Tiere. Nachgebildet wird der Ultraschall durch den
+CARLA-Hinderniserkennungssensor (Abschnitt~3.2) mit 3\,m Reichweite und einem Suchradius
+von 15\,cm; die Reichweite ist an den MaxBotix MB1242 angelehnt \parencite{maxbotix_mb1242}
+und wegen der geringen Geschwindigkeit auf 3\,m begrenzt. Die Sensoren sind um 4° nach
+oben geneigt; ohne diese Neigung meldeten sie im Test die Fahrbahn als Hindernis. Da der
+Sensor nur Treffer meldet, gilt eine Keule als frei, wenn seit 0,3\,s keine Meldung
+eingegangen ist.
+
+\subsection{GNSS, IMU und Messraten}
+\label{sec:starship_navigation}
+
+Der GNSS-Sensor sitzt oben auf dem Deckel unter der Antenne auf 52\,cm Höhe, die IMU in
+Fahrzeugmitte auf 25\,cm. Anders als beim Clevon ist das Rauschen aktiviert: Die
+GNSS-Position streut mit einer Standardabweichung von etwa 2\,m, was einem Empfänger ohne
+RTK-Korrektur entspricht; die IMU-Werte entsprechen einfachen MEMS-Sensoren. Beide Werte
+sind Annahmen ohne Datenblatt des Originals. GNSS liefert 5\,Hz, die IMU ist auf 100\,Hz
+eingestellt. Wie in Abschnitt~3.2.1 beschrieben, sind 100\,Hz im asynchronen Betrieb
+nicht zugesichert; gemessen wurden je nach Last 28 bis 60\,Hz.
+
+\section{Bordstein-Assistent}
+\label{sec:starship_bordstein}
+
+Ein Gehwegroboter muss Bordsteine überqueren. Das reale Fahrzeug klettert mit
+Kipphebeln, an denen die Räder sitzen: Die Hebel drehen zunächst frei und werden dann
+von einem Motor aktiv gedreht, wobei vor allem die Mittelräder angehoben werden
+\parencite{starship_patent_bogie}. Chaos Vehicles kennt keine mechanische Kopplung
+zwischen Rädern; jedes Rad ist ein senkrechter Strahl mit eigener Feder.
+
+\subsection{Ausgangsbefund}
+\label{sec:starship_bordstein_befund}
+
+Bordsteine in der Referenzkarte Town10HD sind fast überall 15\,cm hoch (Median aus 1150
+Messpunkten 14,8\,cm). In der Basismessung an drei festen Stellen scheiterte der Roboter
+an allen Bordsteinen beim Hochfahren; er blieb mit der Vorderradmitte etwa 1\,cm vor der
+Kante stehen. Herunterfahren gelang, jedoch mit Stoßspitzen von 37 bis 44\,m/s².
+Größere Federwege, eine weichere Federung und eine höhere Kollisionsbox änderten die
+Stoppposition nicht. Erst mit dreifachem Motormoment stiegen die Vorderräder auf die
+Kante; der Roboter kippte dann aber nach hinten über, weil die stark gestauchten
+Vorderradfedern die Front weiter anhoben. Eine reine Parameteränderung reichte damit
+nicht aus.
+
+\subsection{Umsetzung}
+\label{sec:starship_bordstein_umsetzung}
+
+Der Bordstein-Assistent ersetzt den Hebelmotor durch eine geregelte Hubkraft je Rad. Er
+ist als C++-Komponente \texttt{UStarshipCurbAssistComponent} im CARLA-Plugin umgesetzt,
+an \texttt{BP\_Starship} angehängt und immer aktiv. Die Komponente läuft in jedem
+Spieltakt vor der Physikberechnung und benötigt keinen externen Client. Fahrzeugmasse,
+Geschwindigkeit und Geometrie bleiben unverändert.
+
+\begin{itemize}
+  \item \textbf{Erkennen:} Ein waagerechter Strahl 5\,cm über dem Boden sucht vor jeder
+  Fahrzeugseite nach einer Kante. Bei einem Treffer wird die Höhe dahinter gemessen;
+  Stufen von 4 bis 25\,cm gelten als Bordstein. Ein Profil im 1-cm-Raster bestimmt, ab
+  wo die Oberseite eben ist.
+  \item \textbf{Anheben:} Ein PD-Regler hebt das jeweils nächste Rad vor der Kante auf
+  eine Sollhöhe knapp über der Oberkante. Die Kraft wirkt am einzelnen Rad, links und
+  rechts getrennt, und ist auf 150\,N je Rad begrenzt.
+  \item \textbf{Reihenfolge:} Zuerst wird die Vorderachse angehoben, danach Mittel- und
+  Hinterachse. Die Sollhöhen liegen auf einer Geraden, sodass das bereits überquerte Rad
+  aufsetzt und Vortrieb behält, während das folgende Rad angehoben wird.
+  \item \textbf{Schutz:} Ab der Erkennung ist die Geschwindigkeit auf 0,6\,m/s begrenzt;
+  über 6° Rollwinkel wird die höhere Seite entlastet, über 40° Nickwinkel die Hubkraft
+  der Vorderachse zurückgenommen.
+\end{itemize}
+
+Ein Python-Client mit derselben Logik diente als Vorstufe. Er lief asynchron zum Server,
+wodurch die Ergebnisse zwischen Durchläufen streuten; die C++-Komponente ist im
+Spieltakt reproduzierbar. Eine zusätzliche Anhaltelogik vor der Kante verschlechterte das
+Ergebnis auf 0 von 12 Auffahrten und wurde verworfen.
+
+\subsection{Ergebnis und Grenzen}
+\label{sec:starship_bordstein_ergebnis}
+
+Tabelle~\ref{tab:starship_bordstein} fasst die Messung aus vier Durchläufen an den drei
+Stellen der Basismessung zusammen. Geradeausfahrt, Höchstgeschwindigkeit und
+Bremsweg blieben unverändert. Die Werte wurden noch mit der Raycast-Radabfrage
+ermittelt; eine Messreihe mit der inzwischen verwendeten Spherecast-Abfrage steht aus.
+Im Fahrbetrieb quert der Roboter Bordsteine mit Spherecast nach qualitativer
+Beobachtung leichter.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Bordsteinüberquerung mit und ohne Assistent (Town10HD, 15\,cm, senkrechte
+  Anfahrt mit Vollgas, Raycast-Radabfrage); eigene Messung vom 20.10.2026.}
+  \label{tab:starship_bordstein}
+  \begin{tabular}{lll}
+    \hline
+    Prüfung & ohne Assistent & mit Assistent \\
+    \hline
+    Bordstein hoch & 0 von 3 & 10 von 12 (2,7 bis 6,0\,s inkl. 1,2\,m Anlauf) \\
+    Bordstein runter & 2 von 2 & 8 von 8 \\
+    Stoßspitze beim Herunterfahren & 37 bis 44\,m/s² & 30 bis 46\,m/s² \\
+    Nickwinkel beim Hochfahren & -- & 27 bis 33° \\
+    Rollwinkel & -- & 1 bis 6° \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Ein starrer Aufbau mit 38\,cm Radstand muss sich an einer 15\,cm hohen Kante
+geometrisch um mindestens 28° neigen; das Original vermeidet dies durch seine
+Gelenkhebel. Etwa jede sechste Auffahrt bleibt hängen, wenn das Mittelrad die Kante zu
+tief erreicht; kurzes Zurücksetzen und erneutes Anfahren behebt dies. Hindernisse bis
+etwa 25\,cm Höhe werden als Bordstein erklettert. Das Herunterfahren erfolgt ohne
+Unterstützung mit harter Landung. Der Assistent ist eine Nachbildung der Wirkung, kein
+Nachbau der Starship-Mechanik.

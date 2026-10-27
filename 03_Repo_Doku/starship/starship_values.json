@@ -1,0 +1,307 @@
+{
+  "errors": [],
+  "bp_class": "/Game/Carla/vehicle3/BP_Starship.BP_Starship_C",
+  "bp_parent": "BP_Starship_C",
+  "mesh": {
+    "skeletal_mesh": "/Game/Carla/vehicle3/SK_Starship_Mesh_HKA.SK_Starship_Mesh_HKA",
+    "anim_class": "/Game/Carla/vehicle3/AnimBP_Starship_v4.AnimBP_Starship_v4_C",
+    "override_materials": [
+      null,
+      null,
+      "/Game/Carla/vehicle3/dark_gray.dark_gray",
+      null,
+      null
+    ],
+    "body_instance": {
+      "com_nudge": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -15.0
+      },
+      "mass_scale": 1.0,
+      "linear_damping": 0.009999999776482582,
+      "angular_damping": 0.0,
+      "collision_enabled": "QUERY_AND_PHYSICS",
+      "object_type": "ECC_VEHICLE"
+    },
+    "collision_profile_name": "Vehicle"
+  },
+  "movement_class": "WheeledVehicleMovementComponent4W",
+  "movement": {
+    "mass": 35.0,
+    "drag_coefficient": 0.30000001192092896,
+    "chassis_width": 50.0,
+    "chassis_height": 50.0,
+    "inertia_tensor_scale": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "min_normalized_tire_load": 0.0,
+    "min_normalized_tire_load_filtered": 0.23080000281333923,
+    "max_normalized_tire_load": 3.0,
+    "max_normalized_tire_load_filtered": 3.0,
+    "threshold_longitudinal_speed": 5.0,
+    "low_forward_speed_sub_step_count": 3,
+    "high_forward_speed_sub_step_count": 1,
+    "reverse_as_brake": false,
+    "deprecated_spring_offset_mode": false,
+    "ackermann_accuracy": 1.0,
+    "idle_brake_input": 0.0,
+    "stop_threshold": 10.0,
+    "wrong_direction_threshold": 100.0,
+    "use_rvo_avoidance": false
+  },
+  "wheel_setups": [
+    {
+      "wheel_class": "/Game/Carla/vehicle3/BP_Starship_FLW.BP_Starship_FLW_C",
+      "bone_name": "Wheel_Front_Left",
+      "additional_offset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "disable_steering": false
+    },
+    {
+      "wheel_class": "/Game/Carla/vehicle3/BP_Starship_FRW.BP_Starship_FRW_C",
+      "bone_name": "Wheel_Front_Right",
+      "additional_offset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "disable_steering": false
+    },
+    {
+      "wheel_class": "/Game/Carla/vehicle3/BP_Starship_RLW.BP_Starship_RLW_C",
+      "bone_name": "Wheel_Rear_Left",
+      "additional_offset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "disable_steering": false
+    },
+    {
+      "wheel_class": "/Game/Carla/vehicle3/BP_Starship_RRW.BP_Starship_RRW_C",
+      "bone_name": "Wheel_Rear_Right",
+      "additional_offset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "disable_steering": false
+    }
+  ],
+  "engine": {
+    "max_rpm": 720.0,
+    "moi": 0.05000000074505806,
+    "damping_rate_full_throttle": 0.009999999776482582,
+    "damping_rate_zero_throttle_clutch_engaged": 0.05000000074505806,
+    "damping_rate_zero_throttle_clutch_disengaged": 0.019999999552965164,
+    "torque_curve": [
+      [
+        1000,
+        10
+      ],
+      [
+        1400,
+        15
+      ],
+      [
+        4200,
+        15
+      ],
+      [
+        5000,
+        12
+      ],
+      [
+        6500,
+        8
+      ]
+    ]
+  },
+  "differential": {
+    "differential_type": "Open_FrontDrive",
+    "splits_and_bias": "default (0.45/0.5/0.5, bias 1.3)"
+  },
+  "transmission": {
+    "use_gear_auto_box": true,
+    "gear_switch_time": 0.10000000149011612,
+    "gear_auto_box_latency": 0.699999988079071,
+    "final_ratio": 3.4000000953674316,
+    "reverse_gear_ratio": -3.4000000953674316,
+    "neutral_gear_up_ratio": 0.15000000596046448,
+    "clutch_strength": 10.0,
+    "forward_gears": [
+      {
+        "ratio": 1.0,
+        "down_ratio": 0.5,
+        "up_ratio": 0.8999999761581421
+      }
+    ]
+  },
+  "steering_curve": "default (UE4 WheeledVehicleMovementComponent4W)",
+  "vehicle_bounds": {
+    "box_extent": {
+      "x": 28.0,
+      "y": 23.0,
+      "z": 24.0
+    },
+    "relative_location": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 69.0
+    },
+    "collision": "NoCollision"
+  },
+  "wheels": {
+    "FLW": {
+      "shape_radius": 9.0,
+      "shape_width": 4.0,
+      "mass": 1.0,
+      "damping_rate": 0.25,
+      "steer_angle": 30.0,
+      "affected_by_handbrake": false,
+      "tire_config": "/Game/Carla/Blueprints/Vehicles/CommonTireConfig.CommonTireConfig",
+      "lat_stiff_max_load": 1.0,
+      "lat_stiff_value": 17.0,
+      "long_stiff_value": 3000.0,
+      "suspension_force_offset": 0.0,
+      "suspension_max_raise": 2.0,
+      "suspension_max_drop": 2.0,
+      "suspension_natural_frequency": 9.0,
+      "suspension_damping_ratio": 0.800000011920929,
+      "max_brake_torque": 20.0,
+      "max_hand_brake_torque": 40.0,
+      "auto_adjust_collision_size": false,
+      "dont_create_shape": false,
+      "collision_mesh": "/Game/Carla/Blueprints/Vehicles/Wheel_Shape.Wheel_Shape"
+    },
+    "FRW": {
+      "shape_radius": 9.0,
+      "shape_width": 4.0,
+      "mass": 1.0,
+      "damping_rate": 0.25,
+      "steer_angle": 30.0,
+      "affected_by_handbrake": false,
+      "tire_config": "/Game/Carla/Blueprints/Vehicles/CommonTireConfig.CommonTireConfig",
+      "lat_stiff_max_load": 1.0,
+      "lat_stiff_value": 17.0,
+      "long_stiff_value": 3000.0,
+      "suspension_force_offset": 0.0,
+      "suspension_max_raise": 2.0,
+      "suspension_max_drop": 2.0,
+      "suspension_natural_frequency": 9.0,
+      "suspension_damping_ratio": 0.800000011920929,
+      "max_brake_torque": 20.0,
+      "max_hand_brake_torque": 40.0,
+      "auto_adjust_collision_size": false,
+      "dont_create_shape": false,
+      "collision_mesh": "/Game/Carla/Blueprints/Vehicles/Wheel_Shape.Wheel_Shape"
+    },
+    "RLW": {
+      "shape_radius": 9.0,
+      "shape_width": 4.0,
+      "mass": 1.0,
+      "damping_rate": 0.25,
+      "steer_angle": 0.0,
+      "affected_by_handbrake": true,
+      "tire_config": "/Game/Carla/Blueprints/Vehicles/CommonTireConfig.CommonTireConfig",
+      "lat_stiff_max_load": 1.0,
+      "lat_stiff_value": 17.0,
+      "long_stiff_value": 3000.0,
+      "suspension_force_offset": 0.0,
+      "suspension_max_raise": 2.0,
+      "suspension_max_drop": 2.0,
+      "suspension_natural_frequency": 9.0,
+      "suspension_damping_ratio": 0.800000011920929,
+      "max_brake_torque": 20.0,
+      "max_hand_brake_torque": 40.0,
+      "auto_adjust_collision_size": false,
+      "dont_create_shape": false,
+      "collision_mesh": "/Game/Carla/Blueprints/Vehicles/Wheel_Shape.Wheel_Shape"
+    },
+    "RRW": {
+      "shape_radius": 9.0,
+      "shape_width": 4.0,
+      "mass": 1.0,
+      "damping_rate": 0.25,
+      "steer_angle": 0.0,
+      "affected_by_handbrake": true,
+      "tire_config": "/Game/Carla/Blueprints/Vehicles/CommonTireConfig.CommonTireConfig",
+      "lat_stiff_max_load": 1.0,
+      "lat_stiff_value": 17.0,
+      "long_stiff_value": 3000.0,
+      "suspension_force_offset": 0.0,
+      "suspension_max_raise": 2.0,
+      "suspension_max_drop": 2.0,
+      "suspension_natural_frequency": 9.0,
+      "suspension_damping_ratio": 0.800000011920929,
+      "max_brake_torque": 20.0,
+      "max_hand_brake_torque": 40.0,
+      "auto_adjust_collision_size": false,
+      "dont_create_shape": false,
+      "collision_mesh": "/Game/Carla/Blueprints/Vehicles/Wheel_Shape.Wheel_Shape"
+    }
+  },
+  "skeletal_mesh": {
+    "physics_asset": "/Game/Carla/vehicle3/PA_Starship_v4.PA_Starship_v4",
+    "skeleton": "/Game/Carla/vehicle3/SK_Starship_v4_SM_Starship_Skeleton.SK_Starship_v4_SM_Starship_Skeleton",
+    "materials": [
+      {
+        "material_interface": "/Game/Carla/vehicle3/dark_gray.dark_gray",
+        "material_slot_name": "dark_gray",
+        "uv_channel_data": "<Struct 'MeshUVChannelInfo' (0x0000020C1DA3EAE4) {}>"
+      },
+      {
+        "material_interface": "/Game/Carla/vehicle3/black.black",
+        "material_slot_name": "black",
+        "uv_channel_data": "<Struct 'MeshUVChannelInfo' (0x0000020C1DA3F6A4) {}>"
+      },
+      {
+        "material_interface": "/Game/Carla/vehicle3/hka_body.hka_body",
+        "material_slot_name": "hka_body",
+        "uv_channel_data": "<Struct 'MeshUVChannelInfo' (0x0000020C1DA3EAE4) {}>"
+      },
+      {
+        "material_interface": "/Game/Carla/vehicle3/hka_red.hka_red",
+        "material_slot_name": "hka_red",
+        "uv_channel_data": "<Struct 'MeshUVChannelInfo' (0x0000020C1DA3F6A4) {}>"
+      },
+      {
+        "material_interface": "/Game/Carla/vehicle3/hka_lid.hka_lid",
+        "material_slot_name": "hka_lid",
+        "uv_channel_data": "<Struct 'MeshUVChannelInfo' (0x0000020C1DA3EAE4) {}>"
+      }
+    ],
+    "bounds_box_extent": {
+      "x": 28.243404388427734,
+      "y": 27.706783294677734,
+      "z": 32.850006103515625
+    },
+    "bounds_origin": {
+      "x": 5.7220458984375e-06,
+      "y": 2.09808349609375e-05,
+      "z": 32.850006103515625
+    }
+  },
+  "physics_asset": {
+    "asset": "PA_Starship_v4",
+    "body_bone": "VehicleBase",
+    "box_size_cm": [
+      55,
+      45,
+      33
+    ],
+    "box_center_bone_space_cm": [
+      0,
+      0,
+      23.45
+    ],
+    "collision_enabled": "QueryAndPhysics"
+  },
+  "_source": "Read from UE4.26 editor (CARLA ue4-dev ac006dd1b), /Game/Carla/vehicle3, 2026-10-18. Units: cm, kg, deg, Nm, rpm."
+}

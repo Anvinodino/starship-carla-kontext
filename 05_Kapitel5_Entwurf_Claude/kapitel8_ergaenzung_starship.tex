@@ -1,0 +1,53 @@
+% ---------------------------------------------------------------------------
+% OPTIONAL: Ergänzung für Kapitel 8 (Validierung und Ergebnisse).
+% Abschnitt 8.1 sagt "Die Starship-Ergebnisse sind separat zu ergänzen". Dieser Abschnitt
+% wird als NEUER Abschnitt 8.5 am Ende von Kapitel 8 angehängt; die Clevon-Abschnitte
+% 8.1 bis 8.4 bleiben unverändert.
+% ---------------------------------------------------------------------------
+\section{Starship-Modell}
+\label{sec:val_starship}
+
+Die Ergebnisse des Starship beruhen auf skriptgesteuerten Fahr- und Bordsteintests in
+Town10HD, dem Auslesen der Physikwerte im laufenden Spiel und den ROS-2-Gesamttests
+aus Kapitel~7. Rohdaten und Prüfskripte liegen im Projekt-Repository unter
+\texttt{02\_starship\_emodell/docs/messungen} und \texttt{02\_starship\_emodell/scripts/carla}
+\parencite{rauch_lee_repo}.
+
+Der Abnahmetest liest zunächst die Blueprint-Attribute und die Physikwerte des
+gespawnten Fahrzeugs aus und vergleicht sie mit den Sollwerten. Bestätigt wurden
+35\,kg, sechs Räder mit 9\,cm Radius, Lenkwinkel nur an der Vorderachse, Antrieb aller
+sechs Räder, 720\,min$^{-1}$ und 3\,Nm. Anschließend fährt der Test definierte Manöver
+(Tabelle~\ref{tab:val_starship}).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Abnahmetest des Starship-Modells (Town10HD, CARLA 0.10.0); eigene Messung vom
+  20.10.2026.}
+  \label{tab:val_starship}
+  \begin{tabular}{ll}
+    \hline
+    Prüfung & Ergebnis \\
+    \hline
+    Ruhelage & steht auf allen sechs Rädern \\
+    Höchstgeschwindigkeit, Vollgas 8\,s & 6,27 bis 6,31\,km/h, 90\,\% nach 0,8\,s \\
+    Nick-/Rollwinkel geradeaus & unter 3° \\
+    Bremsweg aus ca. 6\,km/h & 0,22\,m \\
+    Volllenkung bei 60\,\% Gas & Wenderadius 2,2 bis 2,4\,m, Rollwinkel unter 3° \\
+    Rückwärtsfahrt & 6,1\,km/h \\
+    Handbremse & bremst bis zum Stillstand \\
+    Bordstein 15\,cm hoch / runter & 10 von 12 / 8 von 8 (Raycast, Tabelle~\ref{tab:starship_bordstein}) \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Alle 26 Sensoren lieferten im ROS-2-Gesamttest gleichzeitig Daten mit ihrer Sollrate;
+nur die IMU war durch den Simulationstakt begrenzt (Tabelle~7.3). Ultraschallsensoren
+vorne erkannten ein Testfahrzeug in 1,15 bis 2,27\,m Abstand. Die Steuerung über ROS~2
+erreichte die Höchstgeschwindigkeit, fuhr eine Linkskurve und bremste bis zum
+Stillstand (Tabelle~7.2).
+
+Die Prüfungen belegen die Funktionsfähigkeit des Modells, keine Übereinstimmung mit dem
+realen Fahrzeug. Messwerte des Originals zu Beschleunigung, Bremsweg, Wendekreis und
+Kletterverhalten lagen nicht vor. Das Herunterfahren vom Bordstein erzeugt Stoßspitzen
+von etwa 4\,g, und etwa jede sechste Bordsteinauffahrt bleibt hängen. Die Bordsteinmessung mit der aktuellen Spherecast-Radabfrage
+sowie ein Test mit synchronem Simulationstakt, Steigungen und unterschiedlichen Bordsteinhöhen stehen aus.

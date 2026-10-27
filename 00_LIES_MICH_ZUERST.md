@@ -81,6 +81,7 @@ Der Assistent nutzt **keinen** Sensor des Bots, und die Hubkraft ist eine verein
 | `04_Bilder/` | HKA-Modell, Skelett, Sensorbeschriftung, Sensoranordnung, Starship in CARLA 0.10 |
 | `05_Kapitel5_Entwurf_Claude/` | Ein Entwurf für Kapitel 5 (LaTeX), bevor bekannt war, dass V3-7 schon ein Starship-Kapitel hat. **Nur Zusatzmaterial**: Belege (Patente, epc660), Sensor-Abbildung. |
 | `06_Eigene_Dokumente/` | Anvins frühere Dokumente zum UE4-Stand: Bericht mit Laien-Erklärung aller Probleme und Lösungen (u. a. „Bot fällt durch die Straße“ = Maßstabsfehler), Tutorial für Laien. Jeweils als `.md` (nur Text) und als `.docx` **mit allen Grafiken und Screenshots** |
+| `07_Screenshots_Fehlersuche/` | 12 echte Screenshots aus der Nacht, in der das Durchfallen behoben wurde (Kollisionsform falsch → richtig, CARLA-Bilder davor/danach), mit Erklärung in `README.md` |
 | `09_Chatverlauf_komplett_lesbar.md` | ganzer Verlauf (nur Texte), zum gezielten Nachschlagen |
 
 ## 5. Wichtige Entscheidungen und Vorgaben des Nutzers
